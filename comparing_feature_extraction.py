@@ -1,10 +1,11 @@
-import os
-import shutil
-
 import librosa
 import numpy as np
 import time
 from rich.progress import track
+import gc
+
+gc.enable()
+gc.collect()
 
 NFFT = 512
 FS = 24000
@@ -12,6 +13,8 @@ HOP_LEN = 300
 WIN_LEN = 512
 MEL_BINS = 128
 N_ATTEMPTS = 1000
+N_SECS = 1
+duration = int(N_SECS * FS)
 
 # Mel Filter Variables
 melW = librosa.filters.mel(sr=FS, n_fft=NFFT, n_mels=MEL_BINS, fmin=50, fmax=None)
@@ -195,45 +198,45 @@ def extract_melIV(audio_input: np.ndarray) -> np.ndarray:
     return feature
 
 if __name__ == "__main__":
-    
+
     melGCC_time = []
     for _ in track(range(N_ATTEMPTS), description="Extracting MelSpec GCCPHAT..."):
-        random_input = np.random.rand(4,FS)
-        
+        random_input = np.random.rand(4,duration)
+
         start_time = time.time()
         melGCC = extract_logmel_gccphat(random_input)
         end_time = time.time()
-        
+
         melGCC_time.append(end_time-start_time)
 
     melGCC_time = np.array(melGCC_time)
     print("[MelSpec GCC] Time taken ~ N({:0.3f}, {:0.3f})".format(np.mean(melGCC_time), np.var(melGCC_time)))
-    
-    melIV_times = []
-    for _ in track(range(N_ATTEMPTS), description='Extracting MelSpecIVs...'):
-        random_input = np.random.rand(4,FS)
-        
-        start_time = time.time()
-        melIV = extract_melIV(random_input)
-        end_time = time.time()
-        
-        melIV_times.append(end_time-start_time)
-        
-    melIV_times = np.array(melIV_times)
-    print("[MelSpec IV] Time taken ~ N({:0.3f}, {:0.3f})".format(np.mean(melIV_times), np.var(melIV_times)))
-    
-    salsalite_time = []
-    for _ in track(range(N_ATTEMPTS), description='Extracting SALSA-Lite...'):
-        random_input = np.random.rand(4,FS)
-        
-        start_time = time.time()
-        salsalite = extract_salsalite(random_input)
-        end_time = time.time()
-        
-        salsalite_time.append(end_time-start_time)
-        
-    salsalite_time = np.array(salsalite_time)
-    print("[SALSA-Lite] Time taken ~ N({:0.3f}, {:0.3f})".format(np.mean(salsalite_time), np.var(salsalite_time)))
+
+    # melIV_times = []
+    # for _ in track(range(N_ATTEMPTS), description='Extracting MelSpecIVs...'):
+    #     random_input = np.random.rand(4,duration)
+
+    #     start_time = time.time()
+    #     melIV = extract_melIV(random_input)
+    #     end_time = time.time()
+
+    #     melIV_times.append(end_time-start_time)
+
+    # melIV_times = np.array(melIV_times)
+    # print("[MelSpec IV] Time taken ~ N({:0.3f}, {:0.3f})".format(np.mean(melIV_times), np.var(melIV_times)))
+
+    # salsalite_time = []
+    # for _ in track(range(N_ATTEMPTS), description='Extracting SALSA-Lite...'):
+    #     random_input = np.random.rand(4,duration)
+
+    #     start_time = time.time()
+    #     salsalite = extract_salsalite(random_input)
+    #     end_time = time.time()
+
+    #     salsalite_time.append(end_time-start_time)
+
+    # salsalite_time = np.array(salsalite_time)
+    # print("[SALSA-Lite] Time taken ~ N({:0.3f}, {:0.3f})".format(np.mean(salsalite_time), np.var(salsalite_time)))
     
 
     

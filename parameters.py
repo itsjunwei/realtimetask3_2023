@@ -80,9 +80,9 @@ def get_params(argv='1'):
         params['dataset'] = 'mic'
         params['use_salsalite'] = True
         params['multi_accdoa'] = True
-        params['use_augmentations'] = False
+        params['use_augmentations'] = True
         params['use_conformer'] = False
-        params['use_resnet18'] = True
+        params['use_resnet'] = True
 
     elif argv == '2':
         print("MIC + SALSA + multi ACCDOA + ResNet-Conformer \n")
@@ -92,7 +92,7 @@ def get_params(argv='1'):
         params['multi_accdoa'] = True
         params['use_augmentations'] = True
         params['use_conformer'] = True
-        params['use_resnet18'] = True
+        params['use_resnet'] = True
 
     elif argv == '3':
         print("MIC + SALSA + multi ACCDOA + Baseline \n")
@@ -102,7 +102,7 @@ def get_params(argv='1'):
         params['multi_accdoa'] = True
         params['use_augmentations'] = True
         params['use_conformer'] = False
-        params['use_resnet18'] = False
+        params['use_resnet'] = False
 
     elif argv == '4':
         print("MIC + GCC + ACCDOA\n")

@@ -222,8 +222,8 @@ class ResNet18(nn.Module):
         return x
 
 if __name__ == "__main__":
-    input_feature_shape = (1, 7, 81, 191) # SALSA-Lite input shape
-    output_feature_shape = (1, 50, 117)
+    input_feature_shape = (1, 7, 161, 191) # SALSA-Lite input shape
+    output_feature_shape = (1, 20, 117)
 
     model = ResNet18(input_shape=input_feature_shape,
                      output_shape=output_feature_shape,
