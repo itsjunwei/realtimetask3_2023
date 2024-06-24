@@ -1,0 +1,6 @@
+DCASE2023_SELD_dataset
+__pycache__
+*.pyc
+*.csv
+*.h5
+*.npy
