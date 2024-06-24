@@ -3,6 +3,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class AvgMaxPool(nn.Module):
+    def __init__(self, poolsize):
+        super().__init__()
+        self.poolsize = poolsize
+
+    def forward(self, x):
+        x1 = F.avg_pool2d(x, kernel_size = self.poolsize)
+        x2 = F.max_pool2d(x, kernel_size = self.poolsize)
+        x = x1 + x2
+
+        return x
+
 def init_layer(layer, method='xavier_uniform'):
     """Initialize a Linear or Convolutional layer. """
     if method == 'xavier_uniform':  ## default

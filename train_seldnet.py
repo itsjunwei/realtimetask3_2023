@@ -22,6 +22,7 @@ from SELD_evaluation_metrics import distance_between_cartesian_coordinates
 import seldnet_model
 from all_models import ResNet18
 from training_utils import *
+from rich.progress import Progress, track
 
 
 
@@ -168,7 +169,8 @@ def train_epoch(data_generator, optimizer, model, criterion, params, device, sch
                 apply_augmentations=False):
     nb_train_batches, train_loss = 0, 0.
     model.train()
-    for data, target in data_generator.generate():
+    for data, target in track(data_generator.generate(), description="Training...",
+                              total=data_generator.get_total_batches_in_data()):
         # load one batch of data
         data, target = torch.tensor(data).to(device).float(), torch.tensor(target).to(device).float()
         
@@ -261,7 +263,7 @@ def main(argv):
         elif '2023' in params['dataset_dir']:
             test_splits = [[4]]
             val_splits = [[4]]
-            train_splits = [[1, 2, 3, 9]] 
+            train_splits = [[1, 2, 3]] 
 
 
         else:
@@ -335,7 +337,7 @@ def main(argv):
         nb_epoch = 2 if params['quick_test'] else params['nb_epochs']
         optimizer = optim.Adam(model.parameters(), lr=params['lr'])
         scheduler = CustomLRScheduler(optimizer, total_epochs=params['nb_epochs'],
-                                      milestones=params['milestones'], min_lr=params['final_lr'])
+                                      min_lr=params['final_lr'])
         
         
         if params['multi_accdoa'] is True:

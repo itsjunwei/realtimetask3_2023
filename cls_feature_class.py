@@ -57,7 +57,13 @@ class FeatureClass:
         self._nb_label_frames_1s = int(self._label_frame_res)
 
         self._win_len = 2 * self._hop_len
-        self._nfft = self._next_greater_power_of_2(self._win_len)
+        if self._hop_len == 300:
+            self._win_len = 512
+            self._nfft = 512
+        else:
+            self._win_len = 2 * self._hop_len # Default : 960 / 480 /
+            self._nfft = self._next_greater_power_of_2(self._win_len) # Default : 1024 / 512
+        print("Using {}-point FFT".format(self._nfft))
 
         self._dataset = params['dataset']
         self._eps = 1e-8

@@ -81,7 +81,7 @@ class BottleNeckDSC(nn.Module):
         self.stride = stride
         if self.stride == 2:
             self.downsample = nn.Sequential(
-                nn.AvgPool2d(kernel_size=(2,2)),
+                AvgMaxPool(poolsize=(2,2)),
                 nn.Conv2d(in_channels=in_channels,
                           out_channels=out_channels,
                           kernel_size=(1,1), stride=(1,1), bias=False),
@@ -134,9 +134,12 @@ class BottleNeckDSC(nn.Module):
 
 
 class ResNet18(nn.Module):
-    def __init__(self, input_shape, output_shape, 
+    def __init__(self, input_shape, output_shape,
+                 resfilters = [64, 128, 256], 
                  p_dropout: float = 0.0, use_conformer=False,
+                 use_selayers = False,
                  **kwargs):
+        super().__init__()
         """
         :param n_input_channels: Number of input channels.
         :param p_dropout: Dropout probability.
@@ -146,34 +149,49 @@ class ResNet18(nn.Module):
         self.input_shape = input_shape
         self.output_shape = output_shape
         self.p_dropout = p_dropout
+        self.resfilters = resfilters
+        self.use_selayers = use_selayers
 
         self.use_conformer = use_conformer
 
-        self.conv_block1 = ConvBlock(in_channels=self.input_shape[1], out_channels=64)
+        self.conv_block1 = ConvBlock(in_channels=self.input_shape[1], 
+                                     out_channels=self.resfilters[0])
+        if self.use_selayers:
+            self.stemsqex = ChannelSpatialSELayer(num_channels=self.resfilters[0])
 
-        self.resnetlayer1 = BottleNeckDSC(in_channels=64,
-                                          out_channels=64,
+        self.resnetlayer1 = BottleNeckDSC(in_channels=self.resfilters[0],
+                                          out_channels=self.resfilters[0],
                                           stride=None)
-        self.resnetlayer2 = BottleNeckDSC(in_channels=64,
-                                          out_channels=128,
+        if self.use_selayers:
+            self.sqex1 = ChannelSpatialSELayer(num_channels=self.resfilters[0])
+
+        self.resnetlayer2 = BottleNeckDSC(in_channels=self.resfilters[0],
+                                          out_channels=self.resfilters[1],
                                           stride=2)
-        self.resnetlayer3 = BottleNeckDSC(in_channels=128,
-                                          out_channels=256,
+        if self.use_selayers:
+            self.sqex2 = ChannelSpatialSELayer(num_channels=self.resfilters[1])
+
+        self.resnetlayer3 = BottleNeckDSC(in_channels=self.resfilters[1],
+                                          out_channels=self.resfilters[2],
                                           stride=2)
+        if self.use_selayers:
+            self.sqex3 = ChannelSpatialSELayer(num_channels=self.resfilters[2])
         
         if self.use_conformer:
-            self.conf1 = ConformerBlock(encoder_dim=256, conv_kernel_size=31)
-            self.conf2 = ConformerBlock(encoder_dim=256, conv_kernel_size=31)
+            self.conf1 = ConformerBlock(encoder_dim=self.resfilters[2], conv_kernel_size=31)
+            self.conf2 = ConformerBlock(encoder_dim=self.resfilters[2], conv_kernel_size=31)
         else:
-            self.gru = nn.GRU(input_size=256, hidden_size=128,
-                            num_layers=2, batch_first=True, bidirectional=True, dropout=0.3)
+            self.gru = nn.GRU(input_size=self.resfilters[2], hidden_size=int(self.resfilters[2]//2),
+                              num_layers=2, batch_first=True, bidirectional=True, dropout=0.3)
         
         self.dropout1 = nn.Dropout(p=0.2)
-        self.fc1 = nn.Linear(256, 128, bias=True)
+        self.fc1 = nn.Linear(self.resfilters[2], 
+                             int(self.resfilters[2]//2), bias=True)
         self.leaky = nn.LeakyReLU()
         
         self.dropout2 = nn.Dropout(p=0.2)
-        self.fc2 = nn.Linear(128, self.output_shape[-1], bias=True)
+        self.fc2 = nn.Linear(int(self.resfilters[2]//2), 
+                             self.output_shape[-1], bias=True)
 
     def forward(self, x):
         """
@@ -184,6 +202,7 @@ class ResNet18(nn.Module):
         x = self.resnetlayer1(x)
         x = self.resnetlayer2(x)
         x = self.resnetlayer3(x)
+        print("After ResNet : {}".format(x.shape))
         
         x1 = torch.mean(x, dim=3)
         (x2, _) = torch.max(x, dim=3)
@@ -206,7 +225,9 @@ if __name__ == "__main__":
     input_feature_shape = (1, 7, 81, 191) # SALSA-Lite input shape
     output_feature_shape = (1, 50, 117)
 
-    model = ResNet18(use_conformer=False)
+    model = ResNet18(input_shape=input_feature_shape,
+                     output_shape=output_feature_shape,
+                     use_conformer=True, use_selayers=False)
 
     x = torch.rand((input_feature_shape), device=torch.device("cpu"))
     y = model(x)

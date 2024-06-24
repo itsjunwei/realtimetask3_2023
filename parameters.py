@@ -40,10 +40,10 @@ def get_params(argv='1'):
         fmax_spectra_salsalite = 9000,
 
         # MODEL TYPE
-        use_augmentations=True,
+        use_augmentations=False,
         multi_accdoa=False,  # False - Single-ACCDOA or True - Multi-ACCDOA
         thresh_unify=15,    # Required for Multi-ACCDOA only. Threshold of unification for inference in degrees.
-        use_resnet18 = False,
+        use_resnet = False,
         use_conformer=False,
 
         # DNN MODEL PARAMETERS
@@ -75,26 +75,34 @@ def get_params(argv='1'):
 
     # ########### User defined parameters ##############
     if argv == '1':
-        print("MIC + SALSA + multi ACCDOA\n")
+        print("MIC + SALSA + multi ACCDOA + ResNet-GRU \n")
+        params['quick_test'] = False
+        params['dataset'] = 'mic'
+        params['use_salsalite'] = True
+        params['multi_accdoa'] = True
+        params['use_augmentations'] = False
+        params['use_conformer'] = False
+        params['use_resnet18'] = True
+
+    elif argv == '2':
+        print("MIC + SALSA + multi ACCDOA + ResNet-Conformer \n")
+        params['quick_test'] = False
+        params['dataset'] = 'mic'
+        params['use_salsalite'] = True
+        params['multi_accdoa'] = True
+        params['use_augmentations'] = True
+        params['use_conformer'] = True
+        params['use_resnet18'] = True
+
+    elif argv == '3':
+        print("MIC + SALSA + multi ACCDOA + Baseline \n")
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = True
         params['multi_accdoa'] = True
         params['use_augmentations'] = True
         params['use_conformer'] = False
-        params['use_resnet18'] = True
-
-    elif argv == '2':
-        print("FOA + ACCDOA\n")
-        params['quick_test'] = False
-        params['dataset'] = 'foa'
-        params['multi_accdoa'] = False
-
-    elif argv == '3':
-        print("FOA + multi ACCDOA\n")
-        params['quick_test'] = False
-        params['dataset'] = 'foa'
-        params['multi_accdoa'] = True
+        params['use_resnet18'] = False
 
     elif argv == '4':
         print("MIC + GCC + ACCDOA\n")
