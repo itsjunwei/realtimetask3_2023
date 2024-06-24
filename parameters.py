@@ -95,12 +95,12 @@ def get_params(argv='1'):
         params['use_resnet'] = True
 
     elif argv == '3':
-        print("MIC + SALSA + multi ACCDOA + Baseline \n")
+        print("MIC + SALSA + multi ACCDOA + Baseline + No Augs \n")
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = True
         params['multi_accdoa'] = True
-        params['use_augmentations'] = True
+        params['use_augmentations'] = False
         params['use_conformer'] = False
         params['use_resnet'] = False
 

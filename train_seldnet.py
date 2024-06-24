@@ -270,7 +270,7 @@ def main(argv):
         elif '2023' in params['dataset_dir']:
             test_splits = [[4]]
             val_splits = [[4]]
-            train_splits = [[1, 2, 3]] 
+            train_splits = [[1, 2, 3, 9]] 
 
 
         else:
