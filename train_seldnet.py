@@ -23,6 +23,12 @@ import seldnet_model
 from all_models import ResNet18
 from training_utils import *
 from rich.progress import Progress, track
+import wandb
+import gc
+
+# Initialize the garbage collection and collect the garbage
+gc.enable()
+gc.collect()
 
 
 
@@ -199,6 +205,7 @@ def train_epoch(data_generator, optimizer, model, criterion, params, device, sch
         optimizer.step()
         
         train_loss += loss.item()
+        wandb.log({"training_loss" : loss.item()})
         nb_train_batches += 1
         if params['quick_test'] and nb_train_batches == 4:
             break
@@ -287,6 +294,13 @@ def main(argv):
         unique_name = '{}_{}_{}_split{}_{}_{}'.format(
             task_id, job_id, params['mode'], split_cnt, loc_output, loc_feat
         )
+        
+        run_log = wandb.init(
+            project=unique_name,
+            config={"learning_rate" : params["lr"],
+                    "epochs" : params["nb_epochs"]}
+        )
+        
         model_name = '{}_model.h5'.format(os.path.join(params['model_dir'], unique_name))
         print("unique_name: {}\n".format(unique_name))
 
@@ -376,6 +390,16 @@ def main(argv):
                 if val_seld_scr <= best_seld_scr:
                     best_val_epoch, best_ER, best_F, best_LE, best_LR, best_seld_scr = epoch_cnt, val_ER, val_F, val_LE, val_LR, val_seld_scr
                     torch.save(model.state_dict(), model_name)
+            
+            # Log the validation metrics
+            wandb.log({"validation_loss" : val_loss,
+                       "learning_rate" : scheduler.get_last_lr()[-1],
+                       "Val Error Rate" : val_ER,
+                       "Val F1 Score" : val_F,
+                       "Val Localization Error" : val_LE,
+                       "Val Localization Recall" : val_LR,
+                       "Val SELD Score" : val_seld_scr})
+
 
             # Print stats
             print(
