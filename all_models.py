@@ -202,7 +202,6 @@ class ResNet18(nn.Module):
         x = self.resnetlayer1(x)
         x = self.resnetlayer2(x)
         x = self.resnetlayer3(x)
-        print("After ResNet : {}".format(x.shape))
         
         x1 = torch.mean(x, dim=3)
         (x2, _) = torch.max(x, dim=3)
