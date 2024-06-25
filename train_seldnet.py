@@ -177,9 +177,7 @@ def train_epoch(data_generator, optimizer, model, criterion, params, device, sch
     model.train()
     for data, target in track(data_generator.generate(), description="Training...",
                               total=data_generator.get_total_batches_in_data()):
-        # load one batch of data
-        data, target = torch.tensor(data).to(device).float(), torch.tensor(target).to(device).float()
-        
+
         # Apply augmentations on the fly
         if apply_augmentations:
 
@@ -195,6 +193,8 @@ def train_epoch(data_generator, optimizer, model, criterion, params, device, sch
                 this_batch_data = data[batch_idx]
                 data[batch_idx] = transformations(this_batch_data)
 
+        # load one batch of data
+        data, target = torch.tensor(data).to(device).float(), torch.tensor(target).to(device).float()
         optimizer.zero_grad()
 
         # process the batch of data based on chosen mode
@@ -270,7 +270,7 @@ def main(argv):
         elif '2023' in params['dataset_dir']:
             test_splits = [[4]]
             val_splits = [[4]]
-            train_splits = [[1, 2, 3, 9]] 
+            train_splits = params['training_splits'] 
 
 
         else:

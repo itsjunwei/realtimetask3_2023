@@ -26,6 +26,7 @@ def get_params(argv='1'):
         mode='dev',         # 'dev' - development or 'eval' - evaluation dataset
         dataset='foa',       # 'foa' - ambisonic or 'mic' - microphone signals
         unique_classes = 13,
+        training_splits = [3],
 
         #FEATURE PARAMS
         fs=24000,
@@ -83,6 +84,7 @@ def get_params(argv='1'):
         params['use_augmentations'] = True
         params['use_conformer'] = False
         params['use_resnet'] = True
+        params['training_splits'] = [1,2,3,9]
 
     elif argv == '2':
         print("MIC + SALSA + multi ACCDOA + ResNet-Conformer \n")
@@ -93,6 +95,7 @@ def get_params(argv='1'):
         params['use_augmentations'] = True
         params['use_conformer'] = True
         params['use_resnet'] = True
+        params['training_splits'] = [1,2,3,9]
 
     elif argv == '3':
         print("MIC + SALSA + multi ACCDOA + Baseline + No Augs \n")

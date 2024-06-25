@@ -1,4 +1,5 @@
 DCASE2023_SELD_dataset
+wandb
 __pycache__
 *.pyc
 *.csv
