@@ -179,26 +179,18 @@ class FeatureClass:
         phase_vector = phase_vector / (self._delta * self._freq_vector)
         phase_vector = phase_vector[:, self._lower_bin:self._cutoff_bin, :]
         phase_vector[:, self._upper_bin:, :] = 0
-        if self._normalized_spec:
-            phase_vector = phase_vector.transpose((0,2,1))
-        else:
-            phase_vector = phase_vector.transpose((0, 2, 1)).reshape((phase_vector.shape[0], -1))
+        phase_vector = phase_vector.transpose((0,2,1))
 
         # spectral features
         linear_spectra = np.abs(linear_spectra)**2
         for ch_cnt in range(linear_spectra.shape[-1]):
             linear_spectra[:, :, ch_cnt] = librosa.power_to_db(linear_spectra[:, :, ch_cnt], ref=1.0, amin=1e-10, top_db=None)
         linear_spectra = linear_spectra[:, self._lower_bin:self._cutoff_bin, :]
-        if self._normalized_spec:
-            linear_spectra = linear_spectra.transpose((0,2,1)) # time, channels, freq
-        else:
-            linear_spectra = linear_spectra.transpose((0, 2, 1)).reshape((linear_spectra.shape[0], -1)) # time , (channels x freq)
-        
-        if self._normalized_spec:
-            x = np.concatenate((linear_spectra, phase_vector), axis = 1) # time, channels, freq
-            return x.transpose((1,0,2))
-        else:
-            return np.concatenate((linear_spectra, phase_vector), axis=-1)
+        linear_spectra = linear_spectra.transpose((0,2,1)) # time, channels, freq
+
+        x = np.concatenate((linear_spectra, phase_vector), axis = 1) # time, channels, freq
+        return x.transpose((1,0,2))
+
 
 
     def _get_spectrogram_for_file(self, audio_filename):

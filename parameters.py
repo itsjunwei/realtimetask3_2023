@@ -33,7 +33,7 @@ def get_params(argv='1'):
         hop_len_s=0.0125,
         label_hop_len_s=0.1,
         max_audio_len_s=60,
-        nb_mel_bins=64,
+        nb_mel_bins=128,
 
         use_salsalite = False, # Used for MIC dataset only. If true use salsalite features, else use GCC features
         fmin_doa_salsalite = 50,
@@ -98,28 +98,32 @@ def get_params(argv='1'):
         params['training_splits'] = [1,2,3,9]
 
     elif argv == '3':
-        print("MIC + SALSA + multi ACCDOA + Baseline + No Augs \n")
+        print("MIC + SALSA + multi ACCDOA + Baseline + Augs \n")
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = True
         params['multi_accdoa'] = True
-        params['use_augmentations'] = False
+        params['use_augmentations'] = True
         params['use_conformer'] = False
         params['use_resnet'] = False
+        params['f_pool_size'] = [4, 4, 4]
+        params['training_splits'] = [3, 9]
 
     elif argv == '4':
-        print("MIC + GCC + ACCDOA\n")
+        print("FOA + MelIV + Multi-ACCDOA\n")
         params['quick_test'] = False
-        params['dataset'] = 'mic'
+        params['dataset'] = 'foa'
         params['use_salsalite'] = False
-        params['multi_accdoa'] = False
+        params['multi_accdoa'] = True
+        params['label_sequence_length'] = 50
 
     elif argv == '5':
-        print("MIC + SALSA + ACCDOA\n")
+        print("MIC + SALSA-Lite + Multi-ACCDOA\n")
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = True
-        params['multi_accdoa'] = False
+        params['multi_accdoa'] = True
+        params['label_sequence_length'] = 10
 
     elif argv == '6':
         print("MIC + GCC + multi ACCDOA\n")
@@ -147,8 +151,8 @@ def get_params(argv='1'):
     params['feature_sequence_length'] = params['label_sequence_length'] * feature_label_resolution
     params['t_pool_size'] = [feature_label_resolution, 1, 1]     # CNN time pooling
     params['patience'] = int(params['nb_epochs'])     # Stop training if patience is reached
-
-
+    if params['use_salsalite'] is False:
+        params['normalize_specs'] = False
 
     for key, value in params.items():
         print("\t{}: {}".format(key, value))

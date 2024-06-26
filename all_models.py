@@ -137,7 +137,7 @@ class ResNet18(nn.Module):
     def __init__(self, input_shape, output_shape,
                  resfilters = [64, 128, 256], 
                  p_dropout: float = 0.0, use_conformer=False,
-                 use_selayers = False,
+                 use_selayers = False, gru_size = 128, verbose=False,
                  **kwargs):
         super().__init__()
         """
@@ -151,6 +151,8 @@ class ResNet18(nn.Module):
         self.p_dropout = p_dropout
         self.resfilters = resfilters
         self.use_selayers = use_selayers
+        self.gru_size = gru_size
+        self.verbose = verbose
 
         self.use_conformer = use_conformer
 
@@ -158,6 +160,7 @@ class ResNet18(nn.Module):
                                      out_channels=self.resfilters[0])
         if self.use_selayers:
             self.stemsqex = ChannelSpatialSELayer(num_channels=self.resfilters[0])
+        self.pool1 = AvgMaxPool((1,2))
 
         self.resnetlayer1 = BottleNeckDSC(in_channels=self.resfilters[0],
                                           out_channels=self.resfilters[0],
@@ -170,6 +173,7 @@ class ResNet18(nn.Module):
                                           stride=2)
         if self.use_selayers:
             self.sqex2 = ChannelSpatialSELayer(num_channels=self.resfilters[1])
+        self.pool2 = AvgMaxPool((1,2))
 
         self.resnetlayer3 = BottleNeckDSC(in_channels=self.resfilters[1],
                                           out_channels=self.resfilters[2],
@@ -180,17 +184,20 @@ class ResNet18(nn.Module):
         if self.use_conformer:
             self.conf1 = ConformerBlock(encoder_dim=self.resfilters[2], conv_kernel_size=31)
             self.conf2 = ConformerBlock(encoder_dim=self.resfilters[2], conv_kernel_size=31)
+            self.fc_size = self.resfilters[2]
         else:
-            self.gru = nn.GRU(input_size=self.resfilters[2], hidden_size=int(self.resfilters[2]//2),
+            self.gru = nn.GRU(input_size=self.resfilters[2], hidden_size=self.gru_size,
                               num_layers=2, batch_first=True, bidirectional=True, dropout=0.3)
+            self.fc_size = self.gru_size * 2
+        
         
         self.dropout1 = nn.Dropout(p=0.2)
-        self.fc1 = nn.Linear(self.resfilters[2], 
-                             int(self.resfilters[2]//2), bias=True)
+        self.fc1 = nn.Linear(self.fc_size, 
+                             int(self.fc_size // 2), bias=True)
         self.leaky = nn.LeakyReLU()
         
         self.dropout2 = nn.Dropout(p=0.2)
-        self.fc2 = nn.Linear(int(self.resfilters[2]//2), 
+        self.fc2 = nn.Linear(int(self.fc_size // 2), 
                              self.output_shape[-1], bias=True)
 
     def forward(self, x):
@@ -198,35 +205,53 @@ class ResNet18(nn.Module):
         Input: Input x: (batch_size, n_channels, n_timesteps, n_features)"""
 
         x = self.conv_block1(x, pool_size=(2, 2), pool_type="avg")
+        if self.use_selayers:
+            x = self.stemsqex(x)
         x = F.dropout(x, p=self.p_dropout, training=self.training, inplace=True)
+
         x = self.resnetlayer1(x)
+        if self.use_selayers:
+            x = self.sqex1(x)
+        x = self.pool1(x)
+
         x = self.resnetlayer2(x)
+        if self.use_selayers:
+            x = self.sqex2(x)
+        x = self.pool2(x)
+
+        if self.verbose: print("Before Res3 : {}".format(x.shape))
         x = self.resnetlayer3(x)
-        
+        if self.use_selayers:
+            x = self.sqex3(x)
+        if self.verbose: print("After Res3 : {}".format(x.shape))
+
         x1 = torch.mean(x, dim=3)
         (x2, _) = torch.max(x, dim=3)
         x = x1+x2
-        
+
         x = x.transpose(1,2)
-        
+
         if self.use_conformer:
             x = self.conf1(x)
             x = self.conf2(x)
         else:
             x, _ = self.gru(x)
-        
+            if self.verbose: print("After GRU : {}".format(x.shape))
+
         x = self.leaky(self.fc1(self.dropout1(x)))
         x = torch.tanh(self.fc2(self.dropout2(x)))
 
         return x
 
 if __name__ == "__main__":
-    input_feature_shape = (1, 7, 161, 191) # SALSA-Lite input shape
-    output_feature_shape = (1, 20, 117)
+    input_feature_shape = (1, 7, 80, 191) # SALSA-Lite input shape
+    output_feature_shape = (1, 10, 117)
 
     model = ResNet18(input_shape=input_feature_shape,
                      output_shape=output_feature_shape,
-                     use_conformer=True, use_selayers=False)
+                     resfilters=[32,64,128],
+                     use_conformer=True, use_selayers=True,
+                     verbose=True)
 
     x = torch.rand((input_feature_shape), device=torch.device("cpu"))
     y = model(x)

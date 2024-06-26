@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from IPython import embed
+from parameters import get_params
+from thop import profile, clever_format
 
 
 class MSELoss_ADPIT(object):
@@ -184,3 +186,21 @@ class SeldModel(torch.nn.Module):
             x = self.fnn_list[fnn_cnt](x)
         doa = torch.tanh(self.fnn_list[-1](x))
         return doa
+
+if __name__ == "__main__":
+    in_shape = (1, 7, 80, 191)
+    out_shape = (1, 10, 117)
+    
+    p = get_params()
+    
+    model = SeldModel(in_feat_shape=in_shape,
+                         out_shape=out_shape,
+                         params=p)
+    
+    x = torch.rand((in_shape), device=torch.device("cpu"))
+    y = model(x)
+
+    macs, params = profile(model, inputs=(torch.randn(in_shape), ))
+    macs, params = clever_format([macs, params], "%.3f")
+    print("{} MACS and {} Params".format(macs, params))
+    print("Output shape : {}".format(y.shape))
