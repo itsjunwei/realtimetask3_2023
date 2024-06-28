@@ -132,7 +132,7 @@ def get_params(argv='1'):
         params['label_sequence_length'] = 10
         params['training_splits'] = [1,2,3]
         params['use_augmentations'] = True
-        params['batch_size'] = 64
+        params['batch_size'] = 32
 
     elif argv == '6':
         print("MIC + GCC + multi ACCDOA\n")
