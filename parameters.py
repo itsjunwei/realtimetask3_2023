@@ -106,8 +106,9 @@ def get_params(argv='1'):
         params['use_augmentations'] = True
         params['use_conformer'] = False
         params['use_resnet'] = False
-        params['f_pool_size'] = [4, 4, 4]
-        params['training_splits'] = [3, 9]
+        params['f_pool_size'] = [4, 4, 2]
+        params['batch_size'] = 64
+        # params['training_splits'] = [3, 9]
 
     elif argv == '4':
         print("FOA + MelIV + Multi-ACCDOA\n")
@@ -116,6 +117,11 @@ def get_params(argv='1'):
         params['use_salsalite'] = False
         params['multi_accdoa'] = True
         params['label_sequence_length'] = 50
+        params['use_augmentations'] = True
+        params['batch_size'] = 128
+        params['nb_mel_bins'] = 64
+        params['hop_len_s'] = 0.02
+        params['training_splits'] = [1,2,3]
 
     elif argv == '5':
         print("MIC + SALSA-Lite + Multi-ACCDOA\n")
@@ -124,6 +130,9 @@ def get_params(argv='1'):
         params['use_salsalite'] = True
         params['multi_accdoa'] = True
         params['label_sequence_length'] = 10
+        params['training_splits'] = [1,2,3]
+        params['use_augmentations'] = True
+        params['batch_size'] = 64
 
     elif argv == '6':
         print("MIC + GCC + multi ACCDOA\n")
@@ -133,11 +142,12 @@ def get_params(argv='1'):
         params['multi_accdoa'] = True
 
     elif argv == '7':
-        print("MIC + SALSA + multi ACCDOA\n")
+        print("(TESTING) MIC + SALSA-Lite + multi ACCDOA\n")
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = True
         params['multi_accdoa'] = True
+        params['label_sequence_length'] = 10
 
     elif argv == '999':
         print("QUICK TEST MODE\n")

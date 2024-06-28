@@ -191,7 +191,7 @@ if __name__ == "__main__":
     in_shape = (1, 7, 80, 191)
     out_shape = (1, 10, 117)
     
-    p = get_params()
+    p = get_params(argv='5')
     
     model = SeldModel(in_feat_shape=in_shape,
                          out_shape=out_shape,
