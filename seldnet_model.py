@@ -150,11 +150,11 @@ class SeldModel(torch.nn.Module):
 
         # self.pos_embedder = PositionalEmbedding(self.params['rnn_size'])
 
-        self.mhsa_block_list = nn.ModuleList()
-        self.layer_norm_list = nn.ModuleList()
-        for mhsa_cnt in range(params['nb_self_attn_layers']):
-            self.mhsa_block_list.append(nn.MultiheadAttention(embed_dim=self.params['rnn_size'], num_heads=params['nb_heads'], dropout=params['dropout_rate'],  batch_first=True))
-            self.layer_norm_list.append(nn.LayerNorm(self.params['rnn_size']))
+        # self.mhsa_block_list = nn.ModuleList()
+        # self.layer_norm_list = nn.ModuleList()
+        # for mhsa_cnt in range(params['nb_self_attn_layers']):
+        #     self.mhsa_block_list.append(nn.MultiheadAttention(embed_dim=self.params['rnn_size'], num_heads=params['nb_heads'], dropout=params['dropout_rate'],  batch_first=True))
+        #     self.layer_norm_list.append(nn.LayerNorm(self.params['rnn_size']))
 
         self.fnn_list = torch.nn.ModuleList()
         if params['nb_fnn_layers']:
@@ -176,11 +176,11 @@ class SeldModel(torch.nn.Module):
         # pos_embedding = self.pos_embedder(x)
         # x = x + pos_embedding
         
-        for mhsa_cnt in range(len(self.mhsa_block_list)):
-            x_attn_in = x 
-            x, _ = self.mhsa_block_list[mhsa_cnt](x_attn_in, x_attn_in, x_attn_in)
-            x = x + x_attn_in
-            x = self.layer_norm_list[mhsa_cnt](x)
+        # for mhsa_cnt in range(len(self.mhsa_block_list)):
+        #     x_attn_in = x 
+        #     x, _ = self.mhsa_block_list[mhsa_cnt](x_attn_in, x_attn_in, x_attn_in)
+        #     x = x + x_attn_in
+        #     x = self.layer_norm_list[mhsa_cnt](x)
 
         for fnn_cnt in range(len(self.fnn_list) - 1):
             x = self.fnn_list[fnn_cnt](x)
@@ -191,7 +191,7 @@ if __name__ == "__main__":
     in_shape = (1, 7, 80, 191)
     out_shape = (1, 10, 117)
     
-    p = get_params(argv='5')
+    p = get_params(argv='7')
     
     model = SeldModel(in_feat_shape=in_shape,
                          out_shape=out_shape,
@@ -199,6 +199,7 @@ if __name__ == "__main__":
     
     x = torch.rand((in_shape), device=torch.device("cpu"))
     y = model(x)
+    print(model)
 
     macs, params = profile(model, inputs=(torch.randn(in_shape), ))
     macs, params = clever_format([macs, params], "%.3f")

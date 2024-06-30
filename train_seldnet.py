@@ -20,7 +20,7 @@ from IPython import embed
 from cls_compute_seld_results import ComputeSELDResults, reshape_3Dto2D
 from SELD_evaluation_metrics import distance_between_cartesian_coordinates
 import seldnet_model
-from all_models import ResNet18
+from all_models import ResNet18, RNet14
 from training_utils import *
 from rich.progress import Progress, track
 import wandb
@@ -321,6 +321,10 @@ def main(argv):
             model = ResNet18(input_shape=data_in,
                              output_shape=data_out,
                              use_conformer=params['use_conformer']).to(device)
+        elif params['use_r14']:
+            model = RNet14(input_shape= data_in,
+                           output_shape=data_out,
+                           use_conformer=params['use_conformer']).to(device)
         else:
             model = seldnet_model.SeldModel(data_in, data_out, params).to(device)
             print('---------------- SELD-net -------------------')

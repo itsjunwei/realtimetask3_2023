@@ -42,10 +42,11 @@ def get_params(argv='1'):
 
         # MODEL TYPE
         use_augmentations=False,
-        multi_accdoa=False,  # False - Single-ACCDOA or True - Multi-ACCDOA
+        multi_accdoa=True,  # False - Single-ACCDOA or True - Multi-ACCDOA
         thresh_unify=15,    # Required for Multi-ACCDOA only. Threshold of unification for inference in degrees.
         use_resnet = False,
         use_conformer=False,
+        use_r14 = False,
 
         # DNN MODEL PARAMETERS
         label_sequence_length=10,    # Feature sequence length
@@ -83,8 +84,9 @@ def get_params(argv='1'):
         params['multi_accdoa'] = True
         params['use_augmentations'] = True
         params['use_conformer'] = False
-        params['use_resnet'] = True
-        params['training_splits'] = [1,2,3,9]
+        params['use_resnet'] = False
+        params['use_r14'] = True
+        params['training_splits'] = [1,2,3]
 
     elif argv == '2':
         print("MIC + SALSA + multi ACCDOA + ResNet-Conformer \n")
@@ -94,8 +96,9 @@ def get_params(argv='1'):
         params['multi_accdoa'] = True
         params['use_augmentations'] = True
         params['use_conformer'] = True
-        params['use_resnet'] = True
-        params['training_splits'] = [1,2,3,9]
+        params['use_resnet'] = False
+        params['use_r14'] = True
+        params['training_splits'] = [1,2,3]
 
     elif argv == '3':
         print("MIC + SALSA + multi ACCDOA + Baseline + Augs \n")
@@ -117,7 +120,7 @@ def get_params(argv='1'):
         params['use_salsalite'] = False
         params['multi_accdoa'] = True
         params['label_sequence_length'] = 50
-        params['use_augmentations'] = True
+        params['use_augmentations'] = False
         params['batch_size'] = 128
         params['nb_mel_bins'] = 64
         params['hop_len_s'] = 0.02
