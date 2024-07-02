@@ -180,6 +180,23 @@ def train_epoch(data_generator, optimizer, model, criterion, params, device, sch
 
         # Apply augmentations on the fly
         if apply_augmentations:
+            
+            # Applying mixup on the fly
+            for even_idx in range(0 ,int(len(data) - 1), 2):
+
+                # Each mixup (freq,time) has a 50% chance of being triggered independently
+                data_values = [data[even_idx], data[even_idx+1]]
+                target_values = [target[even_idx], target[even_idx+1]]
+
+                mix_data_1, mix_data_2, mix_target_1, mix_target_2 = tf_mixup(data=data_values, target=target_values,
+                                                                                use_freq=True, use_time=True)
+
+                # Return it back to the original batch
+                data[even_idx] = mix_data_1
+                target[even_idx] = mix_target_1
+
+                data[even_idx+1] = mix_data_2
+                target[even_idx+1] = mix_target_2
 
             # Note that transformations are applied to a single sample
             transformations = ComposeTransformNp([
@@ -242,6 +259,7 @@ def main(argv):
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
+    print("Using : {}".format(device))
     torch.autograd.set_detect_anomaly(True)
 
     # use parameter set defined by user
@@ -320,7 +338,7 @@ def main(argv):
         if params['use_resnet']:
             model = ResNet18(input_shape=data_in,
                              output_shape=data_out,
-                             use_conformer=params['use_conformer']).to(device)
+                             use_selayers=params['use_conformer']).to(device)
         elif params['use_r14']:
             model = RNet14(input_shape= data_in,
                            output_shape=data_out,

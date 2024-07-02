@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from model_utils import *
 from thop import profile, clever_format
 from conformer.encoder import ConformerBlock
+import torchinfo
 
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -33,8 +34,8 @@ class ConvBlock(nn.Module):
 
     def forward(self, input, pool_size=(2, 2), pool_type='avg'):
         x = input
-        x = F.relu_(self.bn1(self.conv1(x)))
-        x = F.relu_(self.bn2(self.conv2(x)))
+        x = F.leaky_relu(self.bn1(self.conv1(x)))
+        x = F.leaky_relu(self.bn2(self.conv2(x)))
         if pool_type == 'max':
             x = F.max_pool2d(x, kernel_size=pool_size)
         elif pool_type == 'avg':
@@ -127,7 +128,7 @@ class BottleNeckDSC(nn.Module):
                                  out_channels=out_channels,
                                  kernel_size=(1,1), stride=(1,1), bias=False)
         self.bn3 = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.LeakyReLU()
         
         self.stride = stride
         if self.stride == 2:
@@ -139,7 +140,12 @@ class BottleNeckDSC(nn.Module):
                 nn.BatchNorm2d(out_channels)
             )
         else:
-            self.downsample = None
+            self.downsample = nn.Sequential(
+                nn.Conv2d(in_channels=in_channels,
+                          out_channels=out_channels,
+                          kernel_size=(1,1), stride=(1,1), bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
 
         self.init_weights()
         
@@ -228,8 +234,8 @@ class RNet14(nn.Module):
         else:
             self.gru = nn.GRU(input_size=self.resfilters[2], hidden_size=self.gru_size,
                               num_layers=2, batch_first=True, bidirectional=True, dropout=0.3)
-            self.fc_size = self.gru_size * 2
-            self.fc2_size = self.gru_size
+            self.fc_size = self.gru_size
+            self.fc2_size = 128
             
         self.dropout1 = nn.Dropout(p=0.2)
         self.fc1 = nn.Linear(self.fc_size, 
@@ -270,6 +276,8 @@ class RNet14(nn.Module):
             x = self.conf2(x)
         else:
             x, _ = self.gru(x)
+            x = torch.tanh(x)
+            x = x[:, :, x.shape[-1]//2:] * x[:, :, :x.shape[-1]//2]
             if self.verbose: print("After GRU : {}".format(x.shape))
 
         x = self.leaky(self.fc1(self.dropout1(x)))
@@ -279,7 +287,7 @@ class RNet14(nn.Module):
 
 class ResNet18(nn.Module):
     def __init__(self, input_shape, output_shape,
-                 resfilters = [32, 64, 128], 
+                 resfilters = [64, 128, 256], 
                  p_dropout: float = 0.0, use_conformer=False,
                  use_selayers = False, gru_size = 128, verbose=False,
                  **kwargs):
@@ -301,12 +309,12 @@ class ResNet18(nn.Module):
         self.use_conformer = use_conformer
 
         self.conv_block1 = ConvBlock(in_channels=self.input_shape[1], 
-                                     out_channels=self.resfilters[0])
+                                     out_channels=32)
         if self.use_selayers:
-            self.stemsqex = ChannelSpatialSELayer(num_channels=self.resfilters[0])
+            self.stemsqex = ChannelSpatialSELayer(num_channels=32)
         self.pool1 = AvgMaxPool((1,2))
 
-        self.resnetlayer1 = BottleNeckDSC(in_channels=self.resfilters[0],
+        self.resnetlayer1 = BottleNeckDSC(in_channels=32,
                                           out_channels=self.resfilters[0],
                                           stride=None)
         if self.use_selayers:
@@ -331,18 +339,21 @@ class ResNet18(nn.Module):
             self.fc_size = self.resfilters[2]
         else:
             self.gru = nn.GRU(input_size=self.resfilters[2], hidden_size=self.gru_size,
-                              num_layers=2, batch_first=True, bidirectional=True, dropout=0.3)
-            self.fc_size = self.gru_size * 2
+                              num_layers=2, batch_first=True, bidirectional=False, dropout=0.2)
+            self.fc_size = self.gru_size
+            self.fc2_size = 128
         
         
         self.dropout1 = nn.Dropout(p=0.2)
         self.fc1 = nn.Linear(self.fc_size, 
-                             int(self.fc_size // 2), bias=True)
-        self.leaky = nn.LeakyReLU()
+                             self.fc2_size, bias=True)
+        # self.leaky = nn.LeakyReLU()
+        self.swish = nn.SiLU()
         
         self.dropout2 = nn.Dropout(p=0.2)
-        self.fc2 = nn.Linear(int(self.fc_size // 2), 
+        self.fc2 = nn.Linear(self.fc2_size, 
                              self.output_shape[-1], bias=True)
+
 
     def forward(self, x):
         """
@@ -380,9 +391,10 @@ class ResNet18(nn.Module):
             x = self.conf2(x)
         else:
             x, _ = self.gru(x)
+            x = torch.tanh(x)
             if self.verbose: print("After GRU : {}".format(x.shape))
 
-        x = self.leaky(self.fc1(self.dropout1(x)))
+        x = self.swish(self.fc1(self.dropout1(x)))
         x = torch.tanh(self.fc2(self.dropout2(x)))
 
         return x
@@ -391,21 +403,20 @@ if __name__ == "__main__":
     input_feature_shape = (1, 7, 80, 191) # SALSA-Lite input shape
     output_feature_shape = (1, 10, 117)
 
-    # model = ResNet18(input_shape=input_feature_shape,
-    #                  output_shape=output_feature_shape,
-    #                  resfilters=[32,64,128],
-    #                  use_conformer=True, use_selayers=True,
-    #                  verbose=True)
-    
-    model = RNet14(input_shape=input_feature_shape,
-                   output_shape=output_feature_shape,
-                   use_conformer=False, verbose=True)
+    model = ResNet18(input_shape=input_feature_shape,
+                     output_shape=output_feature_shape,
+                    #  use_selayers=True,
+                     verbose=True)
+
+    # model = RNet14(input_shape=input_feature_shape,
+    #                output_shape=output_feature_shape,
+    #             #    resfilters=[64,128,256],
+    #                use_conformer=False, verbose=True)
     print(model)
 
     x = torch.rand((input_feature_shape), device=torch.device("cpu"))
     y = model(x)
 
-    macs, params = profile(model, inputs=(torch.randn(input_feature_shape), ))
-    macs, params = clever_format([macs, params], "%.3f")
-    print("{} MACS and {} Params".format(macs, params))
-    print("Output shape : {}".format(y.shape))
+    model_profile = torchinfo.summary(model, input_size=input_feature_shape)
+    print('MACC:\t \t %.3f' %  (model_profile.total_mult_adds/1e6), 'M')
+    print('Memory:\t \t %.3f' %  (model_profile.total_params/1e3), 'K\n')

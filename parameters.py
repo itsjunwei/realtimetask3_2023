@@ -114,17 +114,32 @@ def get_params(argv='1'):
         # params['training_splits'] = [3, 9]
 
     elif argv == '4':
-        print("FOA + MelIV + Multi-ACCDOA\n")
+        print("MIC + SALSA + multi-ACCDOA + Proposed Model\n")
         params['quick_test'] = False
-        params['dataset'] = 'foa'
-        params['use_salsalite'] = False
+        params['dataset'] = 'mic'
+        params['use_salsalite'] = True
         params['multi_accdoa'] = True
-        params['label_sequence_length'] = 50
-        params['use_augmentations'] = False
-        params['batch_size'] = 128
-        params['nb_mel_bins'] = 64
-        params['hop_len_s'] = 0.02
+        params['label_sequence_length'] = 10
+        params['use_augmentations'] = True
+        params['nb_epochs'] = 200
+        params['batch_size'] = 64
         params['training_splits'] = [1,2,3]
+        params['use_resnet'] = True
+        params['use_conformer'] = False
+        
+    elif argv == '4s':
+        print("MIC + SALSA + multi-ACCDOA + Proposed Model + SE Layers Activated\n")
+        params['quick_test'] = False
+        params['dataset'] = 'mic'
+        params['use_salsalite'] = True
+        params['multi_accdoa'] = True
+        params['label_sequence_length'] = 10
+        params['use_augmentations'] = True
+        params['nb_epochs'] = 200
+        params['batch_size'] = 32
+        params['training_splits'] = [1,2,3]
+        params['use_resnet'] = True
+        params['use_conformer'] = True
 
     elif argv == '5':
         print("MIC + SALSA-Lite + Multi-ACCDOA\n")
