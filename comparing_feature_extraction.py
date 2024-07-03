@@ -3,6 +3,8 @@ import numpy as np
 import time
 from rich.progress import track
 import gc
+from all_models import RNet14, CNN8
+import torch
 
 gc.enable()
 gc.collect()
@@ -12,7 +14,7 @@ FS = 24000
 HOP_LEN = 300
 WIN_LEN = 512
 MEL_BINS = 128
-N_ATTEMPTS = 1000
+N_ATTEMPTS = 200
 N_SECS = 1
 duration = int(N_SECS * FS)
 
@@ -199,47 +201,112 @@ def extract_melIV(audio_input: np.ndarray) -> np.ndarray:
 
 if __name__ == "__main__":
 
+    common_output_shape = (1, 10, 117)
+    gcc_inshape = (1, 10, 81, 128)
+    iv_inshape = (1, 7, 81, 128)
+    sl_inshape = (1, 7, 81, 191)
+    
+
+    """
+    MEL-GCCPHAT FEATURE EXTRACTION AND INFERENCE TIME CHECKS
+    """
+
+    model = RNet14(input_shape=gcc_inshape,
+                   output_shape=common_output_shape).to(torch.device("cpu"))
+    # model = CNN8(in_feat_shape=gcc_inshape,
+    #              out_shape=common_output_shape).to(torch.device("cpu"))
+    model.eval()
+
     melGCC_time = []
+    GCC_inference = []
     for _ in track(range(N_ATTEMPTS), description="Extracting MelSpec GCCPHAT..."):
         random_input = np.random.rand(4,duration)
 
         start_time = time.time()
         melGCC = extract_logmel_gccphat(random_input)
         end_time = time.time()
+        
+        infer_start = time.time()
+        with torch.no_grad():
+            melGCC = np.expand_dims(melGCC, axis=0)
+            x = torch.from_numpy(melGCC).to(torch.device("cpu")).float()
+            output = model(x)
+        infer_end = time.time()
 
         melGCC_time.append(end_time-start_time)
+        GCC_inference.append(infer_end - infer_start)
 
     melGCC_time = np.array(melGCC_time)
-    print("[MelSpec GCC] Time taken ~ N({:0.3f}, {:0.3f})".format(np.mean(melGCC_time), np.var(melGCC_time)))
-
-    # melIV_times = []
-    # for _ in track(range(N_ATTEMPTS), description='Extracting MelSpecIVs...'):
-    #     random_input = np.random.rand(4,duration)
-
-    #     start_time = time.time()
-    #     melIV = extract_melIV(random_input)
-    #     end_time = time.time()
-
-    #     melIV_times.append(end_time-start_time)
-
-    # melIV_times = np.array(melIV_times)
-    # print("[MelSpec IV] Time taken ~ N({:0.3f}, {:0.3f})".format(np.mean(melIV_times), np.var(melIV_times)))
-
-    # salsalite_time = []
-    # for _ in track(range(N_ATTEMPTS), description='Extracting SALSA-Lite...'):
-    #     random_input = np.random.rand(4,duration)
-
-    #     start_time = time.time()
-    #     salsalite = extract_salsalite(random_input)
-    #     end_time = time.time()
-
-    #     salsalite_time.append(end_time-start_time)
-
-    # salsalite_time = np.array(salsalite_time)
-    # print("[SALSA-Lite] Time taken ~ N({:0.3f}, {:0.3f})".format(np.mean(salsalite_time), np.var(salsalite_time)))
+    print("[MelSpec GCC] Extraction Time ~ N({:0.3f}, {:0.3f})".format(np.mean(melGCC_time), np.var(melGCC_time)))
     
-
+    GCC_inference = np.array(GCC_inference)
+    print("[MelSpec GCC] Inference Time ~ N({:0.3f}, {:0.3f})".format(np.mean(GCC_inference), np.var(GCC_inference)))
     
+    gc.enable()
+    gc.collect()
+
+    """MEL-IV Feature Extraction and Inference benchmarking"""
+    
+    model = RNet14(input_shape=iv_inshape, output_shape=common_output_shape).to(torch.device("cpu"))
+    model.eval()
+
+    melIV_times = []
+    iv_inference = []
+    for _ in track(range(N_ATTEMPTS), description='Extracting MelSpecIVs...'):
+        random_input = np.random.rand(4,duration)
+
+        start_time = time.time()
+        melIV = extract_melIV(random_input)
+        end_time = time.time()
         
+        infer_start = time.time()
+        with torch.no_grad():
+            melIV = np.expand_dims(melIV, axis=0)
+            x = torch.from_numpy(melIV).to(torch.device("cpu")).float()
+            output = model(x)
+        infer_end = time.time()
+
+        melIV_times.append(end_time-start_time)
+        iv_inference.append(infer_end - infer_start)
+
+    melIV_times = np.array(melIV_times)
+    print("[MelSpec IV] Extraction Time ~ N({:0.3f}, {:0.3f})".format(np.mean(melIV_times), np.var(melIV_times)))
     
+    iv_inference = np.array(iv_inference)
+    print("[MelSpec IV] Inference Time ~ N({:0.3f}, {:0.3f})".format(np.mean(iv_inference), np.var(iv_inference)))
+
+    gc.enable()
+    gc.collect()
+
+    """
+    SALSALITE FEATURE EXTRACTION AND INFERENCE TIME CHECKS
+    """
+
+    model = RNet14(input_shape=sl_inshape,
+                   output_shape=common_output_shape).to(torch.device("cpu"))
+    model.eval()
+
+    salsalite_time = []
+    salsalite_inference_time = []
+    for _ in track(range(N_ATTEMPTS), description='Extracting SALSA-Lite...'):
+        random_input = np.random.rand(4,duration)
+
+        start_time = time.time()
+        salsalite = extract_salsalite(random_input)
+        end_time = time.time()
+
+        infer_start = time.time()
+        with torch.no_grad():
+            salsalite = np.expand_dims(salsalite, axis=0)
+            x = torch.from_numpy(salsalite).to(torch.device("cpu")).float()
+            output = model(x)
+        infer_end = time.time()
+
+        salsalite_time.append(end_time-start_time)
+        salsalite_inference_time.append(infer_end - infer_start)
+
+    salsalite_time = np.array(salsalite_time)
+    print("[SALSA-Lite] Extraction Time ~ N({:0.3f}, {:0.3f})".format(np.mean(salsalite_time), np.var(salsalite_time)))
     
+    salsalite_inference_time = np.array(salsalite_inference_time)
+    print("[SALSA-Lite] Inference Time ~ N({:0.3f}, {:0.3f})".format(np.mean(salsalite_inference_time), np.var(salsalite_inference_time)))

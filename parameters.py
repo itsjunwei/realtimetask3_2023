@@ -45,6 +45,8 @@ def get_params(argv='1'):
         multi_accdoa=True,  # False - Single-ACCDOA or True - Multi-ACCDOA
         thresh_unify=15,    # Required for Multi-ACCDOA only. Threshold of unification for inference in degrees.
         use_resnet = False,
+        use_cnn8 = False,
+        use_cnn4 = False,
         use_conformer=False,
         use_r14 = False,
 
@@ -140,6 +142,34 @@ def get_params(argv='1'):
         params['training_splits'] = [1,2,3]
         params['use_resnet'] = True
         params['use_conformer'] = True
+        
+    elif argv == '4c':
+        print("MIC + SALSA + multi-ACCDOA + Proposed Model + SE Layers Activated\n")
+        params['quick_test'] = False
+        params['dataset'] = 'mic'
+        params['use_salsalite'] = True
+        params['multi_accdoa'] = True
+        params['label_sequence_length'] = 10
+        params['use_augmentations'] = True
+        params['nb_epochs'] = 200
+        params['batch_size'] = 128
+        params['training_splits'] = [1,2,3]
+        params['use_resnet'] = False
+        params['use_conformer'] = False
+        params['use_cnn8'] = True
+        
+    elif argv == '4f':
+        print("MIC + SALSA + multi-ACCDOA + CNN4 Model + SE Layers Activated\n")
+        params['quick_test'] = False
+        params['dataset'] = 'mic'
+        params['use_salsalite'] = True
+        params['multi_accdoa'] = True
+        params['label_sequence_length'] = 10
+        params['use_augmentations'] = True
+        params['nb_epochs'] = 200
+        params['batch_size'] = 64
+        params['training_splits'] = [1,2,3]
+        params['use_cnn4'] = True
 
     elif argv == '5':
         print("MIC + SALSA-Lite + Multi-ACCDOA\n")

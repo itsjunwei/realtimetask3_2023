@@ -20,7 +20,7 @@ from IPython import embed
 from cls_compute_seld_results import ComputeSELDResults, reshape_3Dto2D
 from SELD_evaluation_metrics import distance_between_cartesian_coordinates
 import seldnet_model
-from all_models import ResNet18, RNet14
+from all_models import ResNet18, RNet14, CNN8, CNN4
 from training_utils import *
 from rich.progress import Progress, track
 import wandb
@@ -182,21 +182,21 @@ def train_epoch(data_generator, optimizer, model, criterion, params, device, sch
         if apply_augmentations:
             
             # Applying mixup on the fly
-            for even_idx in range(0 ,int(len(data) - 1), 2):
+            # for even_idx in range(0 ,int(len(data) - 1), 2):
 
-                # Each mixup (freq,time) has a 50% chance of being triggered independently
-                data_values = [data[even_idx], data[even_idx+1]]
-                target_values = [target[even_idx], target[even_idx+1]]
+            #     # Each mixup (freq,time) has a 50% chance of being triggered independently
+            #     data_values = [data[even_idx], data[even_idx+1]]
+            #     target_values = [target[even_idx], target[even_idx+1]]
 
-                mix_data_1, mix_data_2, mix_target_1, mix_target_2 = tf_mixup(data=data_values, target=target_values,
-                                                                                use_freq=True, use_time=True)
+            #     mix_data_1, mix_data_2, mix_target_1, mix_target_2 = tf_mixup(data=data_values, target=target_values,
+            #                                                                     use_freq=True, use_time=True)
 
-                # Return it back to the original batch
-                data[even_idx] = mix_data_1
-                target[even_idx] = mix_target_1
+            #     # Return it back to the original batch
+            #     data[even_idx] = mix_data_1
+            #     target[even_idx] = mix_target_1
 
-                data[even_idx+1] = mix_data_2
-                target[even_idx+1] = mix_target_2
+            #     data[even_idx+1] = mix_data_2
+            #     target[even_idx+1] = mix_target_2
 
             # Note that transformations are applied to a single sample
             transformations = ComposeTransformNp([
@@ -343,6 +343,12 @@ def main(argv):
             model = RNet14(input_shape= data_in,
                            output_shape=data_out,
                            use_conformer=params['use_conformer']).to(device)
+        elif params['use_cnn8']:
+            model = CNN8(in_feat_shape=data_in,
+                         out_shape=data_out).to(device)
+        elif params['use_cnn4']:
+            model = CNN4(in_feat_shape=data_in,
+                         out_shape=data_out).to(device)
         else:
             model = seldnet_model.SeldModel(data_in, data_out, params).to(device)
             print('---------------- SELD-net -------------------')
@@ -372,7 +378,7 @@ def main(argv):
 
         nb_epoch = 2 if params['quick_test'] else params['nb_epochs']
         optimizer = optim.Adam(model.parameters(), lr=params['lr'])
-        scheduler = CustomLRScheduler(optimizer, total_epochs=params['nb_epochs'],
+        scheduler = CustomLRScheduler(optimizer, total_epochs=params['nb_epochs'], milestones=[0.05, 0.6],
                                       min_lr=params['final_lr'])
         
         

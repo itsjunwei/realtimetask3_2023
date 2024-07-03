@@ -5,6 +5,69 @@ from model_utils import *
 from thop import profile, clever_format
 from conformer.encoder import ConformerBlock
 import torchinfo
+from fvcore.nn import FlopCountAnalysis, flop_count_table
+
+class BaseConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)):
+        super().__init__()
+        self.conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
+        self.bn = nn.BatchNorm2d(out_channels)
+
+    def forward(self, x):
+        x = F.relu(self.bn(self.conv(x)))
+        return x
+
+class Baseline(torch.nn.Module):
+    def __init__(self, input_shape, output_shape):
+        super().__init__()
+        self.nb_classes = 13
+        self.conv_block_list = nn.ModuleList()
+        self.f_pool_size = [4,4,2]
+        self.t_pool_size = [8,1,1]
+
+        for conv_cnt in range(len(self.f_pool_size)):
+            self.conv_block_list.append(BaseConvBlock(in_channels=64 if conv_cnt else input_shape[1], out_channels=64))
+            self.conv_block_list.append(nn.MaxPool2d((self.t_pool_size[conv_cnt], self.f_pool_size[conv_cnt])))
+            self.conv_block_list.append(nn.Dropout2d(p=0.1))
+
+        self.gru_input_dim = 64 * int(np.floor(input_shape[-1] / np.prod(self.f_pool_size)))
+        self.gru = torch.nn.GRU(input_size=self.gru_input_dim, hidden_size=128,
+                                num_layers=2, batch_first=True,
+                                dropout=0.1, bidirectional=True)
+
+        # self.pos_embedder = PositionalEmbedding(self.params['rnn_size'])
+
+        self.mhsa_block_list = nn.ModuleList()
+        self.layer_norm_list = nn.ModuleList()
+        for mhsa_cnt in range(2):
+            self.mhsa_block_list.append(nn.MultiheadAttention(embed_dim=128, num_heads=8, dropout=0.1,  batch_first=True))
+            self.layer_norm_list.append(nn.LayerNorm(128))
+
+        self.fnn_list = torch.nn.ModuleList()
+        self.fnn_list.append(nn.Linear(128, 128, bias=True))
+        self.fnn_list.append(nn.Linear(128, output_shape[-1], bias=True))
+
+    def forward(self, x):
+        """input: (batch_size, mic_channels, time_steps, mel_bins)"""
+        for conv_cnt in range(len(self.conv_block_list)):
+            x = self.conv_block_list[conv_cnt](x)
+
+        x = x.transpose(1, 2).contiguous()
+        x = x.view(x.shape[0], x.shape[1], -1).contiguous()
+        (x, _) = self.gru(x)
+        x = torch.tanh(x)
+        x = x[:, :, x.shape[-1]//2:] * x[:, :, :x.shape[-1]//2]
+        
+        for mhsa_cnt in range(len(self.mhsa_block_list)):
+            x_attn_in = x 
+            x, _ = self.mhsa_block_list[mhsa_cnt](x_attn_in, x_attn_in, x_attn_in)
+            x = x + x_attn_in
+            x = self.layer_norm_list[mhsa_cnt](x)
+
+        for fnn_cnt in range(len(self.fnn_list) - 1):
+            x = self.fnn_list[fnn_cnt](x)
+        doa = torch.tanh(self.fnn_list[-1](x))
+        return doa
 
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -188,6 +251,105 @@ class BottleNeckDSC(nn.Module):
 
         return out
 
+class CNN8(nn.Module):
+    def __init__(self, in_feat_shape, out_shape,
+                 **kwargs):
+        super().__init__()
+
+        self.in_shape = in_feat_shape
+        self.out_shape = out_shape
+
+        self.conv1 = nn.Sequential(
+            # nn.Conv2d(in_channels=self.in_shape[1],
+            #           out_channels=32, kernel_size=(3,3),
+            #           stride=(1,1), padding='same', bias=False),
+            nn.Conv2d(in_channels=self.in_shape[1],
+                      out_channels=self.in_shape[1], kernel_size=(5,5),
+                      stride=(1,1), padding='same', 
+                      groups=self.in_shape[1], bias=False),
+            nn.Conv2d(in_channels=self.in_shape[1], out_channels=32,
+                      kernel_size=(1,1), stride=(1,1), bias=False),
+            nn.SiLU(),
+            ChannelSpatialSELayer(num_channels=32,reduction_ratio=4),
+            AvgMaxPool((2,4)),
+            nn.Dropout(0.05)
+        )
+
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(in_channels=32, out_channels=32, 
+                      kernel_size=(3,3),
+                      stride=(1,1), padding=(1,1), 
+                      groups=32, bias=False),
+            nn.Conv2d(in_channels=32, out_channels=64,
+                      kernel_size=(1,1), stride=(1,1), bias=False),
+            nn.SiLU(),
+            ChannelSpatialSELayer(num_channels=64,reduction_ratio=4),
+            AvgMaxPool((2,4)),
+            nn.Dropout(0.05)
+        )
+
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(in_channels=64, out_channels=64, 
+                      kernel_size=(3,3),
+                      stride=(1,1), padding=(1,1), 
+                      groups=64, bias=False),
+            nn.Conv2d(in_channels=64, out_channels=128,
+                      kernel_size=(1,1), stride=(1,1), bias=False),
+            nn.SiLU(),
+            ChannelSpatialSELayer(num_channels=128,reduction_ratio=4),
+            AvgMaxPool((2,4)),
+            nn.Dropout(0.05)
+        )
+
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(in_channels=128, out_channels=128, 
+                      kernel_size=(3,3),
+                      stride=(1,1), padding=(1,1), 
+                      groups=128, bias=False),
+            nn.Conv2d(in_channels=128, out_channels=128,
+                      kernel_size=(1,1), stride=(1,1), bias=False),
+            nn.SiLU(),
+            ChannelSpatialSELayer(num_channels=128,reduction_ratio=4),
+            nn.Dropout(0.05)
+        )
+        
+        self.gru = nn.GRU(input_size=256, hidden_size=128,
+                          num_layers=2, batch_first=True, bidirectional=False, dropout=0.2)
+        self.fc_size = 128
+        self.fc2_size = 128
+        self.dropout1 = nn.Dropout(p=0.2)
+        self.fc1 = nn.Linear(in_features=self.fc_size, 
+                             out_features=self.fc2_size, bias=True)
+        self.leaky = nn.LeakyReLU()
+        
+        self.dropout2 = nn.Dropout(p=0.2)
+        self.fc2 = nn.Linear(in_features=self.fc2_size, 
+                             out_features=self.out_shape[-1], bias=True)
+
+    def forward(self, x):
+        
+        for idx in range(len(self.conv1)):
+            x = self.conv1[idx](x)
+            
+        for idx in range(len(self.conv2)):
+            x = self.conv2[idx](x)
+            
+        for idx in range(len(self.conv3)):
+            x = self.conv3[idx](x)
+        
+        for idx in range(len(self.conv4)):
+            x = self.conv4[idx](x)
+
+        x = x.transpose(1, 2).contiguous()
+        x = x.view(x.shape[0], x.shape[1], -1).contiguous()
+        print(x.shape)
+        (x, _) = self.gru(x)
+        x = torch.tanh(x)
+
+        x = self.leaky(self.fc1(self.dropout1(x)))
+        x = torch.tanh(self.fc2(self.dropout2(x)))
+        return x
+        
 class RNet14(nn.Module):
     def __init__(self, input_shape, output_shape,
                  resfilters = [32, 64, 128], 
@@ -399,20 +561,125 @@ class ResNet18(nn.Module):
 
         return x
 
+class CNN4(nn.Module):
+    def __init__(self, in_feat_shape, out_shape,
+                 **kwargs):
+        super().__init__()
+
+        self.in_shape = in_feat_shape
+        self.out_shape = out_shape
+
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_channels=self.in_shape[1],
+                      out_channels=32, kernel_size=(3,3),
+                      stride=(1,1), padding=(1,1), bias=False),
+            nn.SiLU(),
+            ChannelSpatialSELayer(num_channels=32,reduction_ratio=4),
+            AvgMaxPool((2,4)),
+            nn.Dropout(0.1)
+        )
+
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(in_channels=32, out_channels=32, 
+                      kernel_size=(3,3),
+                      stride=(1,1), padding=(1,1), 
+                      groups=32, bias=False),
+            nn.Conv2d(in_channels=32, out_channels=64,
+                      kernel_size=(1,1), stride=(1,1), bias=False),
+            nn.SiLU(),
+            ChannelSpatialSELayer(num_channels=64,reduction_ratio=4),
+            AvgMaxPool((2,4)),
+            nn.Dropout(0.1)
+        )
+
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(in_channels=64, out_channels=64, 
+                      kernel_size=(3,3),
+                      stride=(1,1), padding=(1,1), 
+                      groups=64, bias=False),
+            nn.Conv2d(in_channels=64, out_channels=64,
+                      kernel_size=(1,1), stride=(1,1), bias=False),
+            nn.SiLU(),
+            ChannelSpatialSELayer(num_channels=64,reduction_ratio=4),
+            AvgMaxPool((2,2)),
+            nn.Dropout(0.1)
+        )
+
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(in_channels=64, out_channels=64, 
+                      kernel_size=(3,3),
+                      stride=(1,1), padding=(1,1), 
+                      groups=64, bias=False),
+            nn.Conv2d(in_channels=64, out_channels=64,
+                      kernel_size=(1,1), stride=(1,1), bias=False),
+            nn.SiLU(),
+            ChannelSpatialSELayer(num_channels=64,reduction_ratio=4),
+            nn.Dropout(0.1)
+        )
+        self.gru_input_dim = 64 * int(np.floor(self.in_shape[-1] / 32))
+        self.gru = nn.GRU(input_size=self.gru_input_dim, hidden_size=128,
+                          num_layers=2, batch_first=True, bidirectional=False, dropout=0.2)
+        self.fc_size = 128
+        self.fc2_size = 128
+        self.dropout1 = nn.Dropout(p=0.2)
+        self.fc1 = nn.Linear(in_features=self.fc_size, 
+                             out_features=self.fc2_size, bias=True)
+        self.leaky = nn.LeakyReLU()
+        
+        self.dropout2 = nn.Dropout(p=0.2)
+        self.fc2 = nn.Linear(in_features=self.fc2_size, 
+                             out_features=self.out_shape[-1], bias=True)
+
+    def forward(self, x):
+        
+        for idx in range(len(self.conv1)):
+            x = self.conv1[idx](x)
+            
+        for idx in range(len(self.conv2)):
+            x = self.conv2[idx](x)
+            
+        for idx in range(len(self.conv3)):
+            x = self.conv3[idx](x)
+        
+        for idx in range(len(self.conv4)):
+            x = self.conv4[idx](x)
+
+        x = x.transpose(1, 2).contiguous()
+        x = x.view(x.shape[0], x.shape[1], -1).contiguous()
+        (x, _) = self.gru(x)
+        x = torch.tanh(x)
+
+        x = self.leaky(self.fc1(self.dropout1(x)))
+        x = torch.tanh(self.fc2(self.dropout2(x)))
+        return x
+
+
+
 if __name__ == "__main__":
     input_feature_shape = (1, 7, 80, 191) # SALSA-Lite input shape
+    # input_feature_shape = (1, 7, 80, 128) # MelIV input shape
+    # input_feature_shape = (1, 10, 80, 128) # Mel GCC-PHAT input shape
     output_feature_shape = (1, 10, 117)
+    
+    # model = CNN8(in_feat_shape=input_feature_shape,
+    #              out_shape=output_feature_shape)
+    
+    model = CNN4(in_feat_shape=input_feature_shape,
+                 out_shape=output_feature_shape)
 
-    model = ResNet18(input_shape=input_feature_shape,
-                     output_shape=output_feature_shape,
-                    #  use_selayers=True,
-                     verbose=True)
+    # model = ResNet18(input_shape=input_feature_shape,
+    #                  output_shape=output_feature_shape,
+    #                  use_selayers=True,
+    #                  verbose=True)
 
     # model = RNet14(input_shape=input_feature_shape,
     #                output_shape=output_feature_shape,
     #             #    resfilters=[64,128,256],
     #                use_conformer=False, verbose=True)
-    print(model)
+    
+    # model = Baseline(input_shape=input_feature_shape,
+    #                  output_shape=output_feature_shape)
+    # print(model)
 
     x = torch.rand((input_feature_shape), device=torch.device("cpu"))
     y = model(x)
@@ -420,3 +687,8 @@ if __name__ == "__main__":
     model_profile = torchinfo.summary(model, input_size=input_feature_shape)
     print('MACC:\t \t %.3f' %  (model_profile.total_mult_adds/1e6), 'M')
     print('Memory:\t \t %.3f' %  (model_profile.total_params/1e3), 'K\n')
+    
+    # model.to(torch.device("cpu"))
+    # flops = FlopCountAnalysis(model, x)
+    # print("Total MACs : {:.3f}M".format(flops.total()/1e6))
+    # print(flop_count_table(flops))
