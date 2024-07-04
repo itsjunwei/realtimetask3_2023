@@ -27,7 +27,7 @@ class Baseline(torch.nn.Module):
 
         for conv_cnt in range(len(self.f_pool_size)):
             self.conv_block_list.append(BaseConvBlock(in_channels=64 if conv_cnt else input_shape[1], out_channels=64))
-            self.conv_block_list.append(nn.MaxPool2d((self.t_pool_size[conv_cnt], self.f_pool_size[conv_cnt])))
+            self.conv_block_list.append(AvgMaxPool((self.t_pool_size[conv_cnt], self.f_pool_size[conv_cnt])))
             self.conv_block_list.append(nn.Dropout2d(p=0.1))
 
         self.gru_input_dim = 64 * int(np.floor(input_shape[-1] / np.prod(self.f_pool_size)))
@@ -571,20 +571,20 @@ class CNN4(nn.Module):
 
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels=self.in_shape[1],
-                      out_channels=32, kernel_size=(3,3),
+                      out_channels=64, kernel_size=(3,3),
                       stride=(1,1), padding=(1,1), bias=False),
             nn.SiLU(),
-            ChannelSpatialSELayer(num_channels=32,reduction_ratio=4),
+            ChannelSpatialSELayer(num_channels=64,reduction_ratio=4),
             AvgMaxPool((2,4)),
             nn.Dropout(0.1)
         )
 
         self.conv2 = nn.Sequential(
-            nn.Conv2d(in_channels=32, out_channels=32, 
+            nn.Conv2d(in_channels=64, out_channels=64, 
                       kernel_size=(3,3),
                       stride=(1,1), padding=(1,1), 
-                      groups=32, bias=False),
-            nn.Conv2d(in_channels=32, out_channels=64,
+                      groups=64, bias=False),
+            nn.Conv2d(in_channels=64, out_channels=64,
                       kernel_size=(1,1), stride=(1,1), bias=False),
             nn.SiLU(),
             ChannelSpatialSELayer(num_channels=64,reduction_ratio=4),
@@ -656,9 +656,9 @@ class CNN4(nn.Module):
 
 
 if __name__ == "__main__":
-    input_feature_shape = (1, 7, 80, 191) # SALSA-Lite input shape
+    # input_feature_shape = (1, 7, 80, 191) # SALSA-Lite input shape
     # input_feature_shape = (1, 7, 80, 128) # MelIV input shape
-    # input_feature_shape = (1, 10, 80, 128) # Mel GCC-PHAT input shape
+    input_feature_shape = (1, 10, 80, 128) # Mel GCC-PHAT input shape
     output_feature_shape = (1, 10, 117)
     
     # model = CNN8(in_feat_shape=input_feature_shape,
