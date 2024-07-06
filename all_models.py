@@ -352,7 +352,7 @@ class CNN8(nn.Module):
         
 class RNet14(nn.Module):
     def __init__(self, input_shape, output_shape,
-                 resfilters = [32, 64, 128], 
+                 resfilters = [64,128,256,512], 
                  p_dropout: float = 0.0, use_conformer=False,
                  use_selayers = False, gru_size = 128, verbose=False,
                  **kwargs):
@@ -375,18 +375,24 @@ class RNet14(nn.Module):
                                   out_channels=self.resfilters[0])
         self.reslayer2 = ResLayer(in_channels=self.resfilters[0],
                                   out_channels=self.resfilters[0])
-        self.avgmaxpool1 = AvgMaxPool(poolsize=(2,4))
+        self.avgmaxpool1 = nn.AvgPool2d((2,4))
         
         self.reslayer3 = ResLayer(in_channels=self.resfilters[0],
                                   out_channels=self.resfilters[1])
         self.reslayer4 = ResLayer(in_channels=self.resfilters[1],
                                   out_channels=self.resfilters[1])
-        self.avgmaxpool2 = AvgMaxPool(poolsize=(2,4))
+        self.avgmaxpool2 = nn.AvgPool2d((2,4))
         
         self.reslayer5 = ResLayer(in_channels=self.resfilters[1],
                                   out_channels=self.resfilters[2])
         self.reslayer6 = ResLayer(in_channels=self.resfilters[2],
                                   out_channels=self.resfilters[2])
+        self.avgmaxpool3 = nn.AvgPool2d((1,2))
+        
+        self.reslayer7 = ResLayer(in_channels=self.resfilters[2],
+                                  out_channels=self.resfilters[3])
+        self.reslayer8 = ResLayer(in_channels=self.resfilters[3],
+                                  out_channels=self.resfilters[3])
         
         if self.use_conformer:
             self.conf1 = ConformerBlock(encoder_dim=self.resfilters[2], conv_kernel_size=31)
@@ -394,7 +400,7 @@ class RNet14(nn.Module):
             self.fc_size = self.resfilters[2]
             self.fc2_size = 128
         else:
-            self.gru = nn.GRU(input_size=self.resfilters[2], hidden_size=self.gru_size,
+            self.gru = nn.GRU(input_size=self.resfilters[3], hidden_size=self.gru_size,
                               num_layers=2, batch_first=True, bidirectional=True, dropout=0.3)
             self.fc_size = self.gru_size
             self.fc2_size = 128
@@ -424,13 +430,14 @@ class RNet14(nn.Module):
         
         x = self.reslayer5(x)
         x = self.reslayer6(x)
+        x = self.avgmaxpool3(x)
+        
+        x = self.reslayer7(x)
+        x = self.reslayer8(x)
 
         if self.verbose: print("After Res6 : {}".format(x.shape))
 
-        x1 = torch.mean(x, dim=3)
-        (x2, _) = torch.max(x, dim=3)
-        x = x1+x2
-
+        x = torch.mean(x, dim=3)
         x = x.transpose(1,2)
 
         if self.use_conformer:
@@ -656,26 +663,26 @@ class CNN4(nn.Module):
 
 
 if __name__ == "__main__":
-    # input_feature_shape = (1, 7, 80, 191) # SALSA-Lite input shape
+    input_feature_shape = (1, 7, 80, 191) # SALSA-Lite input shape
     # input_feature_shape = (1, 7, 80, 128) # MelIV input shape
-    input_feature_shape = (1, 10, 80, 128) # Mel GCC-PHAT input shape
+    # input_feature_shape = (1, 10, 80, 128) # Mel GCC-PHAT input shape
     output_feature_shape = (1, 10, 117)
     
     # model = CNN8(in_feat_shape=input_feature_shape,
     #              out_shape=output_feature_shape)
     
-    model = CNN4(in_feat_shape=input_feature_shape,
-                 out_shape=output_feature_shape)
+    # model = CNN4(in_feat_shape=input_feature_shape,
+    #              out_shape=output_feature_shape)
 
     # model = ResNet18(input_shape=input_feature_shape,
     #                  output_shape=output_feature_shape,
     #                  use_selayers=True,
     #                  verbose=True)
 
-    # model = RNet14(input_shape=input_feature_shape,
-    #                output_shape=output_feature_shape,
-    #             #    resfilters=[64,128,256],
-    #                use_conformer=False, verbose=True)
+    model = RNet14(input_shape=input_feature_shape,
+                   output_shape=output_feature_shape,
+                #    resfilters=[64,128,256],
+                   use_conformer=False, verbose=True)
     
     # model = Baseline(input_shape=input_feature_shape,
     #                  output_shape=output_feature_shape)
