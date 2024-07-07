@@ -395,9 +395,9 @@ class RNet14(nn.Module):
                                   out_channels=self.resfilters[3])
         
         if self.use_conformer:
-            self.conf1 = ConformerBlock(encoder_dim=self.resfilters[2], conv_kernel_size=31)
-            self.conf2 = ConformerBlock(encoder_dim=self.resfilters[2], conv_kernel_size=31)
-            self.fc_size = self.resfilters[2]
+            self.conf1 = ConformerBlock(encoder_dim=self.resfilters[3], conv_kernel_size=51)
+            self.conf2 = ConformerBlock(encoder_dim=self.resfilters[3], conv_kernel_size=51)
+            self.fc_size = self.resfilters[3]
             self.fc2_size = 128
         else:
             self.gru = nn.GRU(input_size=self.resfilters[3], hidden_size=self.gru_size,
