@@ -375,19 +375,19 @@ class RNet14(nn.Module):
                                   out_channels=self.resfilters[0])
         self.reslayer2 = ResLayer(in_channels=self.resfilters[0],
                                   out_channels=self.resfilters[0])
-        self.avgmaxpool1 = nn.AvgPool2d((2,4))
+        self.avgmaxpool1 = nn.AvgPool2d((2,2))
         
         self.reslayer3 = ResLayer(in_channels=self.resfilters[0],
                                   out_channels=self.resfilters[1])
         self.reslayer4 = ResLayer(in_channels=self.resfilters[1],
                                   out_channels=self.resfilters[1])
-        self.avgmaxpool2 = nn.AvgPool2d((2,4))
+        self.avgmaxpool2 = nn.AvgPool2d((2,2))
         
         self.reslayer5 = ResLayer(in_channels=self.resfilters[1],
                                   out_channels=self.resfilters[2])
         self.reslayer6 = ResLayer(in_channels=self.resfilters[2],
                                   out_channels=self.resfilters[2])
-        self.avgmaxpool3 = nn.AvgPool2d((1,2))
+        self.avgmaxpool3 = nn.AvgPool2d((1,4))
         
         self.reslayer7 = ResLayer(in_channels=self.resfilters[2],
                                   out_channels=self.resfilters[3])
